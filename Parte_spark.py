@@ -13,6 +13,7 @@ df = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "172.28.190.252:9092") \
     .option("subscribe", "Imagen") \
+    .option("subscribe", "Metadata") \
     .option("startingOffsets", "earliest") \
     .load()
 
