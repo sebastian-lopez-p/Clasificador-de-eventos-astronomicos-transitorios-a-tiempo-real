@@ -5,6 +5,7 @@ import gzip
 import io
 from astropy.io import fits
 import struct
+import time
 """
 la forma de ejecutar esto es con la maquina virtual de mi pc (Thomas)
 con 2 temrinales en wsl se deben de ejecutar estas 2 lineas de comandos en la carpeta de kafka
@@ -41,11 +42,12 @@ for file in onlyfiles:
                         if key in ["gal_lat","gal_lng","ecl_lat","ecl_lng"]:
                             if key in record.keys():
                                 #print(record[key]) #send
-                                PRODUCER.send("Metadata", record[key].tobytes())
+                                PRODUCER.send("Metadata", record[key].to_bytes())
+
                             else:
                                 #print(0) #send Nan
                                 cero = 0
-                                PRODUCER.send("Metadata", cero.tobytes())
+                                PRODUCER.send("Metadata", cero.to_bytes())
 
                         elif key == "approx_nondet":
                             #print(cutout.get("ncovhist") - cutout["ndethist"]) #send
@@ -56,6 +58,7 @@ for file in onlyfiles:
                             print(cutout[key]) #send
                             if type(cutout[key]) == type(0.1):
                                 PRODUCER.send("Metadata", struct.pack('d', cutout[key]))
+                                
                             elif type(cutout[key]) == type(" "):
                                 PRODUCER.send("Metadata", cutout[key].encode('utf-8'))
 
@@ -70,5 +73,4 @@ for file in onlyfiles:
                     print(name, file)
                 else:
                     print(f"{name} no contiene datos de imagen.")
-            
-            break 
+    time.sleep(8)        
