@@ -5,26 +5,20 @@ from pyspark.sql.functions import from_json, col , expr, udf
 from pyspark.sql.types import *
 import numpy as np
 import tensorflow as tf
-
-"""
-arreglar las dimensiones del array que se descifra de las imagenes
-
-
-
-"""
-
 import os
 os.environ["PYSPARK_PYTHON"] = "python"
 os.environ["PYSPARK_DRIVER_PYTHON"] = "python"
+"""
 
+"""
 def binario_a_array(bin_data):
     try:
-        arr = np.frombuffer(bin_data, dtype=np.float32)
-        return arr.tolist()
+        arr = np.frombuffer(bin_data, dtype=np.float32).reshape(21,21,3)
+        return arr.flatten().tolist()
     except Exception:
-        return []
+        return [0.0] * (21 * 21 * 3)
 
-udf_array = udf(binario_a_array, ArrayType(FloatType()))
+udf_array = udf(binario_a_array, ArrayType(ArrayType(ArrayType(FloatType()))))
 
 schema_metadata = StructType([
     StructField("ra", DoubleType()),
@@ -57,21 +51,22 @@ spark = SparkSession.builder \
     .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.5") \
     .getOrCreate()
 
-#spark.sparkContext.addFile(".\\Modelo\\modelo_entrenado_v5.keras")
-#model_file_local = SparkFiles.get("modelo_entrenado_v5.keras")
-#modelo = tf.keras.models.load_model(model_file_local, compile=False)
+spark.sparkContext.addFile(".\\Modelo\\modelo_entrenado_v5.keras")
+model_file_local = SparkFiles.get("modelo_entrenado_v5.keras")
+modelo = tf.keras.models.load_model(model_file_local, compile=False)
 
-# def predecir_desde_binario(bin_data):
-#     try:
-#         arr = np.frombuffer(bin_data, dtype=np.float32).reshape((3, 21, 21))
-#         arr = np.moveaxis(arr, 0, -1)  # (21, 21, 3)
-#         arr = np.expand_dims(arr, axis=0)  # (1, 21, 21, 3)
-#         pred = modelo.predict(arr, verbose=0)
-#         return int(np.argmax(pred))
-#     except Exception as e:
-#         return -1 
+def prediccion(arr):
+    try:
+        arr = np.array(arr)
+        arr = np.reshape(arr, (21,21,3))
+        arr = np.transpose(arr, (2,0,1))
+        arr = np.expand_dims(arr, axis=0)  # (1, 21, 21, 3)
+        pred = modelo.predict(arr, verbose=0)
+        return int(np.argmax(pred))
+    except Exception:
+        return -1 
 
-#predict_udf = udf(predecir_desde_binario, IntegerType())
+udf_prediccion = udf(prediccion, IntegerType())
 
 df_imagen_bin = spark.readStream \
     .format("kafka") \
@@ -80,11 +75,11 @@ df_imagen_bin = spark.readStream \
     .option("startingOffsets", "earliest") \
     .load() \
     .selectExpr("CAST(key AS STRING) as key", "value") \
-    .withColumn("visual", col("value"))
+    .withColumn("imagen_array", udf_array("value"))
 
-df_imagen_con_array = df_imagen_bin.withColumn("imagen_array", udf_array("value"))
+df_imagen_array = df_imagen_bin.withColumn("imagen_array", udf_array("value"))
 
-df_metadata = spark.readStream \
+df_metadata_bin = spark.readStream \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "172.28.190.252:9092") \
     .option("subscribe", "Metadata") \
@@ -94,15 +89,15 @@ df_metadata = spark.readStream \
     .withColumn("metadata", from_json(col("json"), schema_metadata)) \
     .select("key", "metadata.*")
 
-#spark.sparkContext.broadcast(predict())
+df_final = df_imagen_array.join(df_metadata_bin, on="key", how="inner") \
+    .withColumnRenamed("key", "ID") \
+    .withColumn("prediccion", udf_prediccion("imagen_array")) 
 
-df_final = df_imagen_bin.join(df_metadata, on="key", how="inner")
-
-query = df_final.select("key", "visual") \
+query = df_final.select("ID", "imagen_array", "prediccion", "ra", "dec", "magpsf", "sigmapsf", "isdiffpos", "diffmaglim", "fwhm", "sgscore1", "sgscore2", "sgscore3",  
+                   "distpsnr1", "distpsnr2", "distpsnr3", "classtar", "ndethist", "ncovhist", "chinr", "sharpnr", "approx_nondet", "gal_lat", "gal_lng", "ecl_lat", "ecl_lng") \
     .writeStream \
     .outputMode("append") \
     .format("console") \
     .start()
-
 
 query.awaitTermination()
