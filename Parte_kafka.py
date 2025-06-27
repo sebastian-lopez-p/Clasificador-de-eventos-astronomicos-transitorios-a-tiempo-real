@@ -30,9 +30,12 @@ for file in onlyfiles:
         avro_reader = reader(f)
 
         for record in avro_reader:
+            ID = record["objectId"].encode('utf-8')
             for name in ["candidate", "cutoutScience", "cutoutTemplate", "cutoutDifference"]:
                 cutout = record[name]
-                ID = record["objectId"].encode('utf-8')
+
+                print(record["objectId"],"------------------------------------------------------------------")
+
                 if name == "candidate":
                     for key in metadata:
                         if key in ["gal_lat","gal_lng","ecl_lat","ecl_lng"]:
@@ -64,17 +67,20 @@ for file in onlyfiles:
                         with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
                             hdulist = fits.open(gz)
                             image_data_s = hdulist[0].data
+
                     elif name == "cutoutTemplate":
                         with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
                             hdulist = fits.open(gz)
                             image_data_t = hdulist[0].data
+
                     elif name == "cutoutDifference":
                         with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
                             hdulist = fits.open(gz)
                             image_data_d = hdulist[0].data
-            image_data = np.dstack((image_data_s, image_data_t, image_data_d))
-            print("imagenes")
-            PRODUCER.send("Imagen", image_data.tobytes(), ID)
+
+            image_data = np.dstack((image_data_s, image_data_t, image_data_d))[21:42, 21:42, :]
+            print(image_data.shape, "imagenes")
+            PRODUCER.send("Imagen", image_data.flatten().tobytes(), ID)
                     
     PRODUCER.flush()
-    time.sleep(4)
+    time.sleep(1)
