@@ -6,6 +6,7 @@ import io
 from astropy.io import fits
 import struct
 import time
+import numpy as np
 """
 la forma de ejecutar esto es con la maquina virtual de mi pc (Thomas)
 con 2 temrinales en wsl se deben de ejecutar estas 2 lineas de comandos en la carpeta de kafka
@@ -36,21 +37,21 @@ for file in onlyfiles:
                     for key in metadata:
                         if key in ["gal_lat","gal_lng","ecl_lat","ecl_lng"]:
                             if key in record.keys():
-                                print(record[key]) #send
+                                print(record[key], f"{key}") #send
                                 PRODUCER.send("Metadata", record[key].to_bytes(), ID)
 
                             else:
-                                print(0) #send Nan
+                                print(0, f"{key}") #send Nan
                                 cero = 0
                                 PRODUCER.send("Metadata", cero.to_bytes(), ID)
 
                         elif key == "approx_nondet":
-                            print(cutout.get("ncovhist") - cutout["ndethist"]) #send
+                            print(cutout.get("ncovhist") - cutout["ndethist"], f"{key}") #send
                             resta = cutout.get("ncovhist") - cutout["ndethist"]
                             PRODUCER.send("Metadata", struct.pack('d', resta), ID)
 
                         else:
-                            print(cutout[key]) #send
+                            print(cutout[key], f"{key}") #send
                             if type(cutout[key]) == type(0.1):
                                 PRODUCER.send("Metadata", struct.pack('d', cutout[key]), ID)
 
@@ -58,13 +59,22 @@ for file in onlyfiles:
                                 PRODUCER.send("Metadata", cutout[key].encode('utf-8'), ID)
 
                 if 'stampData' in cutout:
-
                     compressed_data = cutout['stampData']
-                    with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
-                        hdulist = fits.open(gz)
-                        image_data = hdulist[0].data
-                        PRODUCER.send("Imagen", image_data.tobytes(), ID)
-
-                    print(name, file)
+                    if name == "cutoutScience":
+                        with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
+                            hdulist = fits.open(gz)
+                            image_data_s = hdulist[0].data
+                    elif name == "cutoutTemplate":
+                        with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
+                            hdulist = fits.open(gz)
+                            image_data_t = hdulist[0].data
+                    elif name == "cutoutDifference":
+                        with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz:
+                            hdulist = fits.open(gz)
+                            image_data_d = hdulist[0].data
+            image_data = np.dstack((image_data_s, image_data_t, image_data_d))
+            print("imagenes")
+            PRODUCER.send("Imagen", image_data.tobytes(), ID)
+                    
     PRODUCER.flush()
-    time.sleep(8)
+    time.sleep(4)
