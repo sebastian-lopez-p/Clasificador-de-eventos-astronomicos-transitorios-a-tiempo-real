@@ -25,7 +25,7 @@ metadata_keys = ["ra","dec","magpsf","sigmapsf","isdiffpos","diffmaglim","fwhm",
 
 # Configuración del productor Kafka
 PRODUCER = KafkaProducer(
-    bootstrap_servers="localhost:9092",
+    bootstrap_servers="172.28.190.252:9092",
     value_serializer=lambda v: v if isinstance(v, bytes) else str(v).encode('utf-8')
 )
 
