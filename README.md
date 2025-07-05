@@ -1,4 +1,10 @@
 # Clasificación de eventos astronomicos transitorios a tiempo real 
+## Integrantes
+- Andrés Rumillanca
+- Sebastián López
+- Thomas Salazar
+- Ignacio Solís
+
 ## La problematica 
 Un proyecto interesante en la astronomia es la clasificación de cuerpos astronomicos a través de redes neuronales. Nuestro proyecto consiste en clasificar eventos detectados por ZTF (vease sitio web...) los cuales consisten en eventos que son "poco" cumunes y alteran o fluctuan el mapa del cielo nocturno, estos eventos pueden ser objetos tales como; metioritos, AGN, supernovas, estrellas variables, etc.
 
