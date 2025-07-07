@@ -15,7 +15,32 @@ También hay que tener en consideración que los datos sean en formato .avro
 
 # Kafka
 ## funcionamiento del código
-El codigo recorrerá toda la carpeta de los datos, dentro de un ciclo recorrerá cada diccionario asegurandose de que los valores contengan la metadata que se necesita para la clasificación, para luego mandarla a través de kafka en formato binario (.npy), luego se asegura que también exista "stampData", la cual es la "subcarpeta" donde se tienen la informacion de las imagenes, siendo enviada por kafka en formato binario. Toda la información lleva la misma ID de la imagen que contenia el archivo de los datos (key)
+El codigo llamado kafka_v3.py lee los archivos .avro con alertas astronómicas (de ZTF u otros surveys), lo que hace es extraer los metadatos que no serán útiles para pasarlos a la red neuronal junto a las imagenes (al igual que lo hace la parte del procesamiento de los datos), para luego enviar esta información a kafka para ser procesada o distribuida en tiempo real
+
+### resumen del flujo del codigo
+  1. Busca los archivos .avro dentro de una carpeta
+  2. abre cada archivo y lee las alertas una por una
+  3. para cada alerta:
+     - extrae los metadatos junto al ID del objeto
+     - extrae las tres imagenes que nos serán utiles para la capa convulucional (ciencia, diferencia y referencia)
+  4. se repite para todos los archivos
+ 
 
 # Spark
 ## Funcionamiento del código
+Esta parte consiste en la implementacion de la red neuronal para obtener el csv con los objetos astronomicos ya clasificados:
+### Flujo de codigo
+  1. recibe los datos desde kafka con dos topicos (metadatos e imagenes)
+  2. une los datos de metadatos e imagenes usando la id
+  3. limpia los datos
+  4. clasifica cada objeto con un modelo (previamente entrenado)
+     - aclaración: muchas veces tuvimos errores por la forma en la que subiamos la red neuronal, por lo tanto se aplica un codigo en donde se generan predicciones aleatorias para corroborar que el codigo andubiera bien
+  6. guard el resultado en un archivo CSV con:
+     - ID del objeto, clase, confianza
+     - todos los metadatos asociados
+     - indicadores de si los datos fueron correctamente procesados
+  7. repite.
+
+# Resultado final:
+El resultado final de este proyecto será un csv con metadatos (incluyendo el ID) e imagenes con su clasificacion 
+
